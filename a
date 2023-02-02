@@ -1,0 +1,76 @@
+package com.MuteBot;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import net.minecraft.command.CommandBase;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.util.ChatComponentText;
+import net.minecraftforge.client.ClientCommandHandler;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+
+
+@Mod(modid = "MuteBot", version = "0.0.1")
+public class MuteBot extends CommandBase {
+    private static final String API_URL = "http://150.136.138.230:8880/gc";
+    private static final String API_KEY = "mTdXLfp47PpKDNhF";
+    @Override
+    public String getCommandName() {
+        return "altguildchat";
+    }
+    @Override
+    public String getCommandUsage(ICommandSender sender) {
+        return "/altguildchat <message>";
+    }
+
+    @Override
+    public int getRequiredPermissionLevel() {
+        return 0;
+    }
+    @Override
+    public void processCommand(ICommandSender sender, String[] args) {
+        String message = String.join(" ", args);
+        String user = sender.getName();
+
+        try {
+            URL url = new URL(API_URL + "?key=" + API_KEY);
+            HttpURLConnection con = (HttpURLConnection) url.openConnection();
+            con.setRequestMethod("POST");
+            con.setDoOutput(true);
+            con.setRequestProperty("Content-Type", "application/json");
+            try(OutputStream os = con.getOutputStream()) {
+                JsonObject jsonObject = new JsonObject();
+                jsonObject.addProperty("username", user);
+                jsonObject.addProperty("message", message);
+                new Gson().toJson(jsonObject, new OutputStreamWriter(os));
+            }
+
+
+            int responseCode = con.getResponseCode();
+            if (responseCode == 200) {
+                BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+                String response = in.readLine();
+                sender.addChatMessage(new ChatComponentText(response));
+            } else {
+                sender.addChatMessage(new ChatComponentText("Failed to send message to Discord chat. Response code: " + responseCode));
+            }
+        } catch (MalformedURLException e) {
+            sender.addChatMessage(new ChatComponentText("Error constructing URL"));
+        } catch (Exception e) {
+            sender.addChatMessage(new ChatComponentText("Error sending message to Discord chat: " + e.getMessage()));
+        }
+    }
+    @Mod.EventHandler
+    public void Init(FMLPreInitializationEvent event) {
+        ClientCommandHandler.instance.registerCommand(new MuteBot());
+    }
+
+}
